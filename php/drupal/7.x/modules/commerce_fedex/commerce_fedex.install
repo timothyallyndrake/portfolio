@@ -1,0 +1,111 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function commerce_fedex_install() {
+  variable_set('commerce_fedex_developer_key', 'XSrLb3hC9pOjncV6');
+  variable_set('commerce_fedex_developer_password', 'BQI1rhMHhVNDIjJUUAeobkf85');
+  variable_set('commerce_fedex_account_number', '510087666');
+  variable_set('commerce_fedex_meter_number', '118557834');
+  variable_set('commerce_fedex_shipper_company_name', '');
+  variable_set('commerce_fedex_shipper_person_name', '');
+  variable_set('commerce_fedex_shipper_phone_number', '');
+  variable_set('commerce_fedex_shipper_street_line_1', '');
+  variable_set('commerce_fedex_shipper_street_line_2', '');
+  variable_set('commerce_fedex_shipper_city', '');
+  variable_set('commerce_fedex_shipper_state_or_province_code', '');
+  variable_set('commerce_fedex_shipper_postal_code', '');
+  variable_set('commerce_fedex_shipper_country_code', 'US');
+}
+
+/**
+ * Implements hook_schema().
+ */
+function commerce_fedex_schema() {
+  return array(
+    'commerce_fedex_shipment' => array(
+      'description' => '{commerce_fedex_shipment}',
+      'fields' => array(
+        'shipment_id' => array(
+          'description' => '{commerce_fedex_shipment}.shipment_id',
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'delivery_id' => array(
+          'description' => '{commerce_delivery}.delivery_id',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'label_fid' => array(
+          'description' => '{commerce_delivery}.label_fid',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'dropoff_type' => array(
+          'description' => '{commerce_fedex_shipment}.dropoff_type',
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+        ),
+        'service_type' => array(
+          'description' => '{commerce_fedex_shipment}.service_type',
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+        ),
+        'tracking_type' => array(
+          'description' => '{commerce_fedex_shipment}.tracking_type',
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+        ),
+        'tracking_number' => array(
+          'description' => '{commerce_fedex_shipment}.tracking_number',
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'tracking_cache' => array(
+          'description' => '{commerce_fedex_shipment}.tracking_cache',
+          'type' => 'text',
+          'not null' => FALSE,
+          'serialize' => TRUE,
+        ),
+      ),
+      'primary key' => array('shipment_id'),
+      'unique keys' => array(
+        'delivery_id' => array('delivery_id'),
+      ),
+      'foreign keys' => array(
+        'delivery_id' => array(
+          'table' => 'commerce_delivery',
+          'columns' => array('delivery_id' => 'delivery_id'),
+        ),
+      ),
+    )
+  );
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function commerce_fedex_uninstall() {
+  variable_del('commerce_fedex_developer_key');
+  variable_del('commerce_fedex_developer_password');
+  variable_del('commerce_fedex_account_number');
+  variable_del('commerce_fedex_meter_number');
+  variable_del('commerce_fedex_shipper_company_name');
+  variable_del('commerce_fedex_shipper_person_name');
+  variable_del('commerce_fedex_shipper_phone_number');
+  variable_del('commerce_fedex_shipper_street_line_1');
+  variable_del('commerce_fedex_shipper_street_line_2');
+  variable_del('commerce_fedex_shipper_city');
+  variable_del('commerce_fedex_shipper_state_or_province_code');
+  variable_del('commerce_fedex_shipper_postal_code');
+  variable_del('commerce_fedex_shipper_country_code');
+}

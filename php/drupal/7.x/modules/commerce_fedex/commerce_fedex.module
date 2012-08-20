@@ -1,0 +1,389 @@
+<?php
+ini_set('soap.wsdl_cache_enabled', 0);
+
+define('COMMERCE_FEDEX_FILE_LOCATION', 'public://');
+define('COMMERCE_FEDEX_WSDL_LOCATION', drupal_get_path('module', 'commerce_fedex') . '/includes/wsdl');
+
+/**
+ * Implements hook_block_info().
+ */
+function commerce_fedex_block_info() {
+  return array(
+    'tracking' => array(
+    'info' => 'FedEx Tracking',
+    'cache' => DRUPAL_NO_CACHE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function commerce_fedex_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'tracking':
+      if (($order = menu_get_object('commerce_order', 3)) && $order->order_id) {
+        if (($deliveries = commerce_delivery_load_multiple(array(), array('order_id' => $order->order_id), TRUE))) {
+          foreach (entity_metadata_wrapper('list<commerce_delivery>', $deliveries) as $delivery) {
+            if ((($delivery->commerce_fedex_shipment)) && ($shipment = $delivery->commerce_fedex_shipment)) {
+              if ($tracking = commerce_fedex_tracking_load($shipment)) {
+                if (!isset($block['subject']) && !isset($block['content'])) {
+                  $block['subject'] = t('Tracking');
+                  $block['content'] = array('#type' => 'container');
+                }
+
+                $block['content'][] = theme('commerce_fedex_tracking_title', array('tracking_number' => $shipment->tracking_number->value()));
+                $block['content'][] = theme('commerce_fedex_tracking_table', array('tracking' => $tracking));
+              }
+            }
+          }
+        }
+      }
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function commerce_fedex_entity_info() {
+  return array(
+    'commerce_fedex_shipment' => array(
+      'label' => t('Commerce FedEx Shipment'),
+      'controller class' => 'EntityAPIController',
+      'base table' => 'commerce_fedex_shipment',
+      'entity keys' => array(
+        'id' => 'shipment_id',
+      ),
+      'load hook' => 'commerce_fedex_shipment_load',
+      'save callback' => 'commerce_fedex_shipment_save',
+      'creation callback' => 'commerce_fedex_shipment_create',
+      'deletion callback' => 'commerce_fedex_shipment_delete',
+      'module' => 'commerce_fedex',
+      'fieldable' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Loads a commerce_fedex_shipment entity.
+ */
+function commerce_fedex_shipment_load($id) {
+  return commerce_fedex_shipment_load_multiple(array($id), array(), TRUE);
+}
+
+/**
+ * Loads multiple commerce_fedex_shipment entities.
+ */
+function commerce_fedex_shipment_load_multiple($ids = array(), $conditions = array(), $reset = FALSE) {
+  $entities = entity_get_controller('commerce_fedex_shipment')->load($ids, $conditions);
+  return (($entities) ? (($reset) ? reset($entities) : $entities) : FALSE);
+}
+
+/**
+ * Creates a commerce_fedex_shipment entity.
+ */
+function commerce_fedex_shipment_create(array $values = array()) {
+  $values = array(
+    'shipping_id' => '',
+    'delivery_id' => 0,
+    'label_fid' => 0,
+    'dropoff_type' => CommerceFedExDropoffType::getDefault(),
+    'service_type' => CommerceFedExServiceType::getDefault(),
+    'tracking_type' => '',
+    'tracking_number' => '',
+  ) + $values;
+
+  return entity_get_controller('commerce_fedex_shipment')->create($values);
+}
+
+/**
+ * Deletes a commerce_fedex_shipment entity.
+ */
+function commerce_fedex_shipment_delete($id) {
+  commerce_fedex_shipment_delete_multiple(array($id));
+}
+
+/**
+ * Deletes multiple commerce_fedex_shipment entities.
+ */
+function commerce_fedex_shipment_delete_multiple($ids = array()) {
+  entity_get_controller('commerce_fedex_shipment')->delete($ids);
+}
+
+/**
+ * Saves a commerce_fedex_shipment entity.
+ */
+function commerce_fedex_shipment_save($entity) {
+  return entity_get_controller('commerce_fedex_shipment')->save($entity);
+}
+
+/**
+ * Returns commerce_fedex_shipment entity properties.
+ */
+function commerce_fedex_shipment_get_properties($data, array $options, $name, $type, $info) {
+  switch ($name) {
+    case 'commerce_delivery':
+      return empty($data->delivery_id) ? NULL : $data->delivery_id;
+      break;
+
+    case 'commerce_fedex_shipment':
+      $entity = commerce_fedex_shipment_load_multiple(FALSE, array('delivery_id' => $data->delivery_id), TRUE);
+      return empty($entity) ? NULL : $entity;
+      break;
+
+    case 'is_new':
+      return empty($data->shipment_id) || !empty($data->is_new);
+      break;
+
+    case 'label_uri':
+      if (!empty($data->label_fid) && ($file = file_load($data->label_fid))) {
+        return $file->uri;
+      }
+      break;
+
+    default:
+      return NULL;
+      break;
+  }
+
+  return NULL;
+}
+
+function commerce_fedex_shipment_load_by_delivery($delivery_id) {
+  $entity = commerce_fedex_shipment_load_multiple(FALSE, array('delivery_id' => $delivery_id), TRUE);
+  return empty($entity) ? NULL : $entity;
+}
+
+/**
+ * Manages the retrieval of tracking information for a shipment.
+ */
+function commerce_fedex_tracking_load(&$shipment) {
+  if ($shipment->tracking_cache->value()) {
+    return $shipment->tracking_cache->value();
+  }
+  elseif ($shipment->tracking_type->value() && $shipment->tracking_number->value()) {
+    $input = new CommerceFedExTrackerTrackInput();
+    $input->PackageIdentifier->Type = $shipment->tracking_type->value();
+    $input->PackageIdentifier->Value = $shipment->tracking_number->value();
+
+    $request = new CommerceFedExTracker();
+    if ($response = $request->track($input)) {
+      if ($response->TrackDetail && $response->TrackDetail->ActualDeliveryTimestamp) {
+        $shipment->tracking_cache = $response;
+        $shipment->save();
+      }
+
+      return $response;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function commerce_fedex_menu() {
+  return array(
+    'admin/commerce/config/fedex' => array(
+      'title' => 'FedEx settings',
+      'description' => 'Configure identification and authentication settings.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('commerce_fedex_settings_form'),
+      'access arguments' => array('configure settings'),
+      'file' => 'includes/commerce_fedex.pages.inc',
+    ),
+    'admin/commerce/deliveries/%commerce_delivery/shipment' => array(
+      'title' => 'Shipment',
+      'description' => 'Manage shipment associated with this delivery.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('commerce_fedex_shipment_form', 3),
+      // will need custom access callback to determine whether or not this
+      // link should display based on whether the delivery contains only local
+      // inventory items
+      'access arguments' => array('create shipment'),
+      'file' => 'includes/commerce_fedex.pages.inc',
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 10,
+    ),
+    'admin/commerce/deliveries/%commerce_delivery/shipment/delete' => array(
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('commerce_fedex_shipment_delete_confirm', 3),
+      'access arguments' => array('delete shipment'),
+      'file' => 'includes/commerce_fedex.pages.inc',
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Implements hook_permission().
+ */
+function commerce_fedex_permission() {
+  return array(
+    'configure settings' => array(
+      'title' => t('Configure settings'),
+      'description' => t('Allows users to configure settings.'),
+      'restrict access' => TRUE,
+    ),
+    'create shipment' => array(
+      'title' => t('Create shipments'),
+      'description' => t('Allows users to create shipments.'),
+      'restrict access' => TRUE,
+    ),
+    'delete shipment' => array(
+      'title' => t('Delete shipments'),
+      'description' => t('Allows users to delete shipments.'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function commerce_fedex_theme() {
+  return array(
+    'commerce_fedex_tracking_table' => array(
+      'file' => 'includes/commerce_fedex.themes.inc',
+      'variables' => array('tracking' => NULL),
+    ),
+    'commerce_fedex_tracking_title' => array(
+      'file' => 'includes/commerce_fedex.themes.inc',
+      'variables' => array('tracking_number' => NULL),
+    ),
+    'commerce_fedex_tracking_table_rows' => array(
+      'file' => 'includes/commerce_fedex.themes.inc',
+      'variables' => array('events' => NULL),
+    ),
+  );
+}
+
+function commerce_fedex_shipment_create_by_order($order) {
+  if ($order = entity_metadata_wrapper('commerce_order', $order)) {
+    $line_item_groups = array();
+
+    foreach ($order->commerce_line_items as $line_item) {
+      $shipping_service = $line_item->line_item_shipping_service;
+
+      if ($shipping_service && $shipping_service->is_local_inventory->value()) {
+        $delivery_id = $line_item->delivery_ref->value() ? $line_item->delivery_ref->value() : 0;
+
+        if (!$delivery_id || ($delivery_id && !(commerce_delivery_load($delivery_id)))) {
+          if (!array_key_exists('new', $line_item_groups)) {
+            $line_item_groups['new'] = array();
+          }
+          $line_item_groups['new'][] = $line_item;
+        }
+        elseif ($delivery_id && ($delivery = commerce_delivery_load($delivery_id))) {
+          if ($delivery = entity_metadata_wrapper('commerce_delivery', $delivery)) {
+            $commerce_fedex_shipment = $delivery->commerce_fedex_shipment->value();
+
+            if (empty($commerce_fedex_shipment) || empty($commerce_fedex_shipment->shipment_id)) {
+              if (!array_key_exists($delivery->delivery_id->value(), $line_item_groups)) {
+                $line_item_groups[$delivery->delivery_id->value()] = array();
+              }
+
+              $line_item_groups[$delivery->delivery_id->value()][] = $line_item;
+            }
+          }
+        }
+      }
+    }
+
+    if (!count($line_item_groups)) {
+      return FALSE;
+    }
+
+    foreach ($line_item_groups as $group => $line_items) {
+      if (!is_numeric($group) || !($delivery = commerce_delivery_load($group))) {
+        $delivery = commerce_delivery_new($order->order_id->value());
+        $delivery = commerce_delivery_save($delivery);
+      }
+
+      foreach ($line_items as $line_item) {
+        $line_item->delivery_ref = $delivery->delivery_id;
+        $line_item->save();
+      }
+
+      commerce_fedex_shipment_create_by_order_shipment($order, $delivery);
+    }
+
+    return TRUE;
+  }
+
+  drupal_set_message('Failed to create one or more FedEx shipments.', '', TRUE);
+
+  return FALSE;
+}
+
+function commerce_fedex_shipment_create_by_order_shipment($order, $delivery) {
+  $shipping = $order->commerce_customer_shipping;
+  $shipping_address = $shipping->commerce_customer_address;
+
+  $create_input = new CommerceFedExShipmentCreateInput();
+  $create_input->DropoffType = CommerceFedExDropoffType::getDefault();
+  $create_input->ServiceType = CommerceFedExServiceType::getDefault();
+  $create_input->Shipper->Contact->CompanyName = variable_get('commerce_fedex_shipper_company_name', '');
+  $create_input->Shipper->Contact->PersonName = variable_get('commerce_fedex_shipper_person_name', '');
+  $create_input->Shipper->Contact->PhoneNumber = variable_get('commerce_fedex_shipper_phone_number', '');
+  $create_input->Shipper->Address->StreetLine1 = variable_get('commerce_fedex_shipper_street_line_1', '');
+  $create_input->Shipper->Address->StreetLine2 = variable_get('commerce_fedex_shipper_street_line_2', '');
+  $create_input->Shipper->Address->City = variable_get('commerce_fedex_shipper_city', '');
+  $create_input->Shipper->Address->StateOrProvinceCode = variable_get('commerce_fedex_shipper_state_or_province_code', '');
+  $create_input->Shipper->Address->PostalCode = variable_get('commerce_fedex_shipper_postal_code', '');
+  $create_input->Shipper->Address->CountryCode = variable_get('commerce_fedex_shipper_country_code', '');
+  $create_input->Recipient->Contact->PersonName = $shipping_address->name_line->value() ? $shipping_address->name_line->value() : '';
+  $create_input->Recipient->Contact->PhoneNumber = $shipping->field_phone_number->value() ? $shipping->field_phone_number->value() : '555-555-5555';
+  $create_input->Recipient->Address->StreetLine1 = $shipping_address->thoroughfare->value() ? $shipping_address->thoroughfare->value() : '';
+  $create_input->Recipient->Address->StreetLine2 = $shipping_address->premise->value() ? $shipping_address->premise->value() : '';
+  $create_input->Recipient->Address->City = $shipping_address->locality->value() ? $shipping_address->locality->value() : '';
+  $create_input->Recipient->Address->StateOrProvinceCode = $shipping_address->administrative_area->value() ? $shipping_address->administrative_area->value() : '';
+  $create_input->Recipient->Address->PostalCode = $shipping_address->postal_code->value() ? $shipping_address->postal_code->value() : '';
+  $create_input->Recipient->Address->CountryCode = $shipping_address->country->value() ? $shipping_address->country->value() : '';
+
+  $request = new CommerceFedExShipment();
+  if (!($response = $request->create($create_input))) {
+    return FALSE;
+  }
+
+  $shipment = commerce_fedex_shipment_create();
+  $shipment->delivery_id = $delivery->delivery_id;
+  $shipment->dropoff_type = $create_input->DropoffType;
+  $shipment->service_type = $create_input->ServiceType;
+  $shipment->tracking_type = $response->tracking_type;
+  $shipment->tracking_number = $response->tracking_number;
+  $shipment = commerce_fedex_shipment_save($shipment);
+
+  $shipment = entity_metadata_wrapper('commerce_fedex_shipment', $shipment);
+
+  commerce_fedex_shipment_shipping_label_file_create($shipment, $response);
+
+  $shipment->save();
+}
+
+function commerce_fedex_shipment_shipping_label_file_create(&$shipment, $response) {
+  $label_fid = $shipment->label_fid->value();
+  $tracking_number = $shipment->tracking_number->value();
+  if (empty($label_fid) && strlen($tracking_number)) {
+    if ($file = file_save_data($response->label_data, COMMERCE_FEDEX_FILE_LOCATION . '/shipping-label-' . $tracking_number . '.pdf', FILE_EXISTS_REPLACE)) {
+      $shipment->label_fid = $file->fid;
+    }
+  }
+}
+
+function commerce_fedex_shipment_shipping_label_file_delete(&$shipment) {
+  $label_fid = $shipment->label_fid->value();
+  if (!empty($label_fid)) {
+    if ($file = file_load($label_fid)) {
+      if (file_delete($file, TRUE)) {
+        $shipment->label_fid = empty($file) ? $label_fid : 0;
+      }
+    }
+  }
+}

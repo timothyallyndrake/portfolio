@@ -1,0 +1,32 @@
+<?php
+
+function commerce_shipping_extended_install() {
+  if (function_exists('commerce_shipping_services')) {
+    $variables = array();
+
+    foreach (commerce_shipping_services() as $info) {
+      $prefix = implode('_', array('commerce_shipping_extended', $info['shipping_method'], $info['name']));
+
+      $is_local_inventory = implode('_', array($prefix, 'is_local_inventory'));
+      $is_pdf = implode('_', array($prefix, 'is_pdf'));
+
+      variable_set($is_local_inventory, 1);
+      variable_set($is_pdf, 1);
+
+      $variables[$is_local_inventory] = TRUE;
+      $variables[$is_pdf] = TRUE;
+    }
+
+    variable_set('commerce_shipping_extended_variables', $variables);
+  }
+}
+
+function commerce_shipping_extended_uninstall() {
+  $variables = variable_get('commerce_shipping_extended_variables', array());
+
+  foreach (array_keys($variables) as $variable) {
+    variable_del($variable);
+  }
+
+  variable_del('commerce_shipping_extended_variables');
+}

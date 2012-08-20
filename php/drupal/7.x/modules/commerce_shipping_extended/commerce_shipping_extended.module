@@ -1,0 +1,134 @@
+<?php
+
+function commerce_shipping_extended_field_info_alter(&$info) {
+  $info['line_item_shipping_service']['property_callbacks'][] = 'commerce_shipping_extended_line_item_shipping_service_field_property_callback';
+}
+
+function commerce_shipping_extended_line_item_shipping_service_field_property_callback(&$info, $entity_type, $field, $instance, $field_type) {
+  $property = &$info[$entity_type]['bundles'][$instance['bundle']]['properties'][$field['field_name']];
+  $property['getter callback'] = 'entity_metadata_field_verbatim_get';
+  $property['setter callback'] = 'entity_metadata_field_verbatim_set';
+  $property['property info'] = commerce_shipping_extended_line_item_shipping_service_field_property_info();
+}
+
+function commerce_shipping_extended_line_item_shipping_service_field_property_info() {
+  return array(
+    'is_local_inventory' => array(
+      'type' => 'boolean',
+      'label' => t('Local inventory'),
+      'description' => t('Shipping (Extended)'),
+      'getter callback' => 'commerce_shipping_extended_line_item_shipping_service_field_property_get',
+    ),
+    'is_pdf' => array(
+      'type' => 'boolean',
+      'label' => t('PDF'),
+      'description' => t('Shipping (Extended)'),
+      'getter callback' => 'commerce_shipping_extended_line_item_shipping_service_field_property_get',
+    ),
+  );
+}
+
+function commerce_shipping_extended_line_item_shipping_service_field_property_get($data, array $options, $name, $type, $info) {
+  if ($shipping_service = commerce_shipping_service_load($data['line_item_shipping_service'])) {
+    return commerce_shipping_extended_variable_get($shipping_service['shipping_method'], $shipping_service['name'], $name);
+  }
+
+  return NULL;
+}
+
+function commerce_shipping_extended_form_alter(&$form, &$form_state, $form_id) {
+  foreach (commerce_shipping_methods() as $shipping_method) {
+    foreach (array('service', 'service_delete') as $form_type) {
+      if ($form_id == implode('_', array($shipping_method['module'], $form_type, 'form'))) {
+        $form_id = str_replace($shipping_method['module'], 'commerce_shipping_extended', $form_id);
+        if (function_exists($form_id)) {
+          $form_state['name'] = $shipping_method['name'];
+          $form_id($form, $form_state);
+          return;
+        }
+      }
+    }
+  }
+}
+
+function commerce_shipping_extended_service_form(&$form, &$form_state) {
+  $shipping_service = $form_state['shipping_service'];
+
+  if (!empty($shipping_service['shipping_method']) && !empty($shipping_service['name'])) {
+    $is_local_inventory = commerce_shipping_extended_variable_get($shipping_service['shipping_method'], $shipping_service['name'], 'is_local_inventory');
+    $is_pdf = commerce_shipping_extended_variable_get($shipping_service['shipping_method'], $shipping_service['name'], 'is_pdf');
+  }
+
+  $form['is_local_inventory'] = array(
+    '#type' => 'radios',
+    '#title' => t('Local inventory'),
+    '#default_value' => ((isset($is_local_inventory) && !is_null($is_local_inventory)) ? $is_local_inventory : 1),
+    '#options' => array(1 => 'Yes', 0 => 'No'),
+    '#weight' => -200,
+  );
+
+  $form['is_pdf'] = array(
+    '#type' => 'radios',
+    '#title' => t('PDF'),
+    '#default_value' => ((isset($is_pdf) && !is_null($is_pdf)) ? $is_pdf : 1),
+    '#options' => array(1 => 'Yes', 0 => 'No'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="is_local_inventory"]' => array('value' => 0),
+      ),
+    ),
+    '#weight' => -100,
+  );
+
+  $form['#submit'][] = 'commerce_shipping_extended_service_form_submit';
+}
+
+function commerce_shipping_extended_service_form_submit($form, &$form_state) {
+  $shipping_service = $form_state['shipping_service'];
+  $values = $form_state['values'];
+  $name = $form_state['name'];
+
+  if (empty($shipping_service['shipping_method']) || empty($shipping_service['name'])) {
+    $shipping_service = commerce_shipping_service_load($values[$name]['name']);
+  }
+
+  commerce_shipping_extended_variable_set($shipping_service['shipping_method'], $shipping_service['name'], 'is_local_inventory', $values['is_local_inventory']);
+  commerce_shipping_extended_variable_set($shipping_service['shipping_method'], $shipping_service['name'], 'is_pdf', $values['is_pdf']);
+}
+
+function commerce_shipping_extended_service_delete_form(&$form, &$form_state) {
+  $form['#submit'][] = 'commerce_shipping_extended_service_form_delete_submit';
+}
+
+function commerce_shipping_extended_service_form_delete_submit($form, &$form_state) {
+  $shipping_service = $form_state['shipping_service'];
+
+  commerce_shipping_extended_variable_del($shipping_service['shipping_method'], $shipping_service['name'], 'is_local_inventory');
+  commerce_shipping_extended_variable_del($shipping_service['shipping_method'], $shipping_service['name'], 'is_pdf');
+}
+
+function commerce_shipping_extended_variable_name($method, $service, $name) {
+  return implode('_', array('commerce_shipping_extended', $method, $service, $name));
+}
+
+function commerce_shipping_extended_variable_del($method, $service, $name) {
+  $variable_name = commerce_shipping_extended_variable_name($method, $service, $name);
+  variable_del($variable_name);
+  $variables = variable_get('commerce_shipping_extended_variables');
+  unset($variables[$variable_name]);
+  variable_set('commerce_shipping_extended_variables', $variables);
+  return is_null(commerce_shipping_extended_variable_get($method, $service, $name));
+}
+
+function commerce_shipping_extended_variable_get($method, $service, $name) {
+  return variable_get(commerce_shipping_extended_variable_name($method, $service, $name));
+}
+
+function commerce_shipping_extended_variable_set($method, $service, $name, $value) {
+  $variable_name = commerce_shipping_extended_variable_name($method, $service, $name);
+  variable_set($variable_name, $value);
+  $variables = variable_get('commerce_shipping_extended_variables');
+  $variables[$variable_name] = TRUE;
+  variable_set('commerce_shipping_extended_variables', $variables);
+  return !is_null(commerce_shipping_extended_variable_get($method, $service, $name));
+}

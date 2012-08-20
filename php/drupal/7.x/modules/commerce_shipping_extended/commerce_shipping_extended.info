@@ -1,0 +1,7 @@
+name = Shipping (Extended)
+description = Provides extended features for Commerce Shipping.
+package = Commerce (shipping)
+
+core = 7.x
+
+dependencies[] = commerce_shipping

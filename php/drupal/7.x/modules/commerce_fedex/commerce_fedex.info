@@ -1,0 +1,11 @@
+name = Commerce FedEx
+description = Integration of the FedEx Web Services API.
+package = Commerce (shipping)
+
+core = 7.x
+
+files[] = includes/commerce_fedex.services.inc
+
+dependencies[] = commerce_delivery
+
+configure = admin/commerce/config/fedex

@@ -1,0 +1,9 @@
+name = Shipping Condition (Line Item)
+description = Enables and activates Commerce line item shipping conditions.
+package = Commerce (shipping)
+
+core = 7.x
+
+dependencies[] = commerce_shipping_condition
+
+files[] = commerce_shipping_condition_line_item.module

@@ -1,0 +1,139 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function commerce_shipping_condition_install() {
+  variable_set('commerce_shipping_condition_flat_rate_service_options_list', array());
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function commerce_shipping_condition_uninstall() {
+  variable_del('commerce_shipping_condition_flat_rate_service_options_list');
+}
+
+/**
+ * Implements hook_schema().
+ */
+function commerce_shipping_condition_schema() {
+  $schema = array();
+
+  $schema['commerce_shipping_condition_type'] = array(
+    'description' => 'The base table for shipping condition types.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for this shipping condition type.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'type' => array(
+        'description' => 'The machine-readable type for this shipping condition type.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The human-readable name for this shipping condition type.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'translatable' => TRUE,
+      ),
+      'description' => array(
+        'description' => 'The description for this shipping condition type.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'translatable' => TRUE,
+      ),
+      'status' => array(
+        'description' => 'The active boolean status for this shipping condition type.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'commerce_shipping_condition_type_type_idx' => array('type'),
+    ),
+  );
+
+  $schema['commerce_shipping_condition'] = array(
+    'description' => 'The base table for shipping conditions.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for this shipping condition.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'type' => array(
+        'description' => 'The {commerce_shipping_condition_type}.type for this shipping condition.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The human-readable name for this shipping condition.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => FALSE,
+        'translatable' => TRUE,
+      ),
+      'description' => array(
+        'description' => 'The description for this shipping condition.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+        'translatable' => TRUE,
+      ),
+      'status' => array(
+        'description' => 'The active boolean status for this shipping condition.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'commerce_flat_rate_name' => array(
+        'description' => 'The {commerce_flat_rate}.name for this shipping condition.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'commerce_product_type' => array(
+        'description' => 'The {commerce_product_type}.type for this shipping condition.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'country_code' => array(
+        'description' => 'The two character ISO country code for this shipping condition.',
+        'type' => 'char',
+        'length' => 2,
+        'not null' => FALSE,
+      ),
+      'rate' => array(
+        'description' => 'The rate for this shipping condition.',
+        'type' => 'float',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'commerce_shipping_condition_type' => array('type'),
+    ),
+    'foreign keys' => array(
+      'commerce_shipping_condition_type' => array(
+        'table' => 'commerce_shipping_condition_type',
+        'columns'=> array('type' => 'type'),
+      ),
+    ),
+  );
+
+  return $schema;
+}

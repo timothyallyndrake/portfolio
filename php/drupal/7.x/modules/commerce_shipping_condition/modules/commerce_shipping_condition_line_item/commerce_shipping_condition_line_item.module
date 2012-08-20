@@ -1,0 +1,152 @@
+<?php
+
+/*
+function commerce_shipping_condition_line_item_commerce_checkout_page_info_alter(&$checkout_pages) {
+  unset($checkout_pages['shipping']);
+}
+
+function commerce_shipping_condition_line_item_commerce_checkout_pane_info_alter(&$checkout_panes) {
+  unset($checkout_panes['commerce_shipping']);
+}
+*/
+
+function commerce_shipping_condition_line_item_commerce_shipping_service_info_alter(&$shipping_services) {
+  foreach ($shipping_services as $name => $shipping_service) {
+    if ($shipping_service['shipping_method'] == 'flat_rate') {
+      //$shipping_services[$name]['rules_component'] = FALSE;
+      $shipping_services[$name]['callbacks']['rate'] = 'commerce_shipping_condition_line_item_shipping_service_rate_order';
+    }
+  }
+
+  return $shipping_services;
+}
+
+function commerce_shipping_condition_line_item_commerce_shipping_method_collect_rates($shipping_method, $order) {
+  $rate = floatval(0);
+
+  $shipping_profile = $order->commerce_customer_shipping[LANGUAGE_NONE][0]['profile_id'];
+  $shipping_profile = commerce_customer_profile_load($shipping_profile);
+
+  $shipping_address = $shipping_profile->commerce_customer_address[LANGUAGE_NONE][0];
+
+  $line_items = $order->commerce_line_items[LANGUAGE_NONE];
+
+  foreach ($line_items as $line_item) {
+    $rate_line_item = floatval(0);
+
+    $line_item = commerce_line_item_load($line_item['line_item_id']);
+
+    $products = $line_item->commerce_product[LANGUAGE_NONE];
+
+    foreach ($products as $product) {
+      $rate_product = floatval(0);
+
+      $product = commerce_product_load($product['product_id']);
+
+      $shipping_services = commerce_shipping_condition_line_item_product_shipping_services($product);
+
+      if (empty($shipping_services)) {
+        drupal_set_message(t('@product_title has no configured shipping services.', array('@product_title' => $product->title)), 'error');
+        continue;
+      }
+
+      foreach ($shipping_services as $shipping_service) {
+        $rate_shipping_service = floatval(0);
+
+        $shipping_service = commerce_shipping_service_load($shipping_service);
+
+        if ($rate_product == floatval(0)) {
+          $rate_product = floatval($shipping_service['base_rate']['amount']);
+
+          if (commerce_stock_product_enabled($product) && !commerce_stock_product_check_out_of_stock($product->product_id, $line_item->quantity, $remaining_stock)) {
+            break;
+          }
+        }
+
+        $shipping_conditions = commerce_shipping_condition_load_multiple_by_shipping_service($shipping_service);
+
+        foreach ($shipping_conditions as $shipping_condition) {
+          $rate = floatval(0);
+
+          if ($shipping_address->country == $shipping_condition->country_code) {
+            $rate = floatval($shipping_condition->rate);
+          }
+
+          if ($product->type == $shipping_condition->commerce_product_type) {
+            if ($rate != floatval(0)) {
+              $rate_shipping_service = $rate;
+              break;
+            }
+
+            $rate_shipping_service += $rate;
+          }
+        }
+
+        $rate_product += $rate_shipping_service;
+      }
+
+      $rate_line_item += $rate_product;
+    }
+
+    $rate += ($rate_line_item * $line_item->quantity);
+  }
+
+  if (count(drupal_get_messages('error', FALSE))) {
+    drupal_goto('cart');
+    return FALSE;
+  }
+
+  variable_set(commerce_shipping_condition_line_item_shipping_method_order_id_rate_variable_name($shipping_method, $order->order_id), $rate);
+}
+
+function commerce_shipping_condition_line_item_product_shipping_services($product) {
+  $shipping_services = array();
+
+  foreach (get_object_vars($product) as $property_name => $property_value) {
+    if (!is_array($property_value) || !count($property_value)) {
+      continue;
+    }
+
+    if (!is_array($property_value[LANGUAGE_NONE]) || !count($property_value[LANGUAGE_NONE])) {
+      continue;
+    }
+
+    $property_value = $property_value[LANGUAGE_NONE];
+
+    if ((strlen($property_name) < 7) || !(substr_compare($property_name, 'field_', 0, 7))) {
+      continue;
+    }
+
+    foreach ($property_value as $array) {
+      if (!array_key_exists($array[key($array)], commerce_shipping_condition_commerce_shipping_service_option_list())) {
+        continue;
+      }
+
+      if (!in_array($array[key($array)], $shipping_services)) {
+        $shipping_services[] = $array[key($array)];
+      }
+    }
+  }
+
+  return $shipping_services;
+}
+
+/**
+ * TODO: Tax
+ *       Variable cleanup
+ */
+function commerce_shipping_condition_line_item_shipping_service_rate_order($shipping_service, $order) {
+  $price = variable_get(commerce_shipping_condition_line_item_shipping_method_order_id_rate_variable_name($shipping_service['shipping_method'], $order->order_id), floatval(0));
+
+  $return = array(
+    'amount' => $price,
+    'currency_code' => commerce_default_currency(),
+    'data' => array(),
+  );
+
+  return $return;
+}
+
+function commerce_shipping_condition_line_item_shipping_method_order_id_rate_variable_name($shipping_method, $order_id) {
+  return 'commerce_shipping_condition_line_item_shipping_method_' . $shipping_method . '_order_id_' . $order_id . '_rate';
+}

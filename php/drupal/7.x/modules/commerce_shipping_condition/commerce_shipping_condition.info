@@ -1,0 +1,21 @@
+name = Shipping Condition
+description = Define and manage Commerce (shipping) conditions.
+package = Commerce (shipping)
+
+core = 7.x
+
+dependencies[] = commerce
+dependencies[] = commerce_shipping
+dependencies[] = commerce_shipping_ui
+dependencies[] = commerce_flat_rate
+
+files[] = commerce_shipping_condition.info.inc
+files[] = commerce_shipping_condition.module
+files[] = includes/commerce_shipping_condition_overview.admin.inc
+files[] = includes/commerce_shipping_condition_type_overview.admin.inc
+files[] = includes/commerce_shipping_condition_type.admin.inc
+files[] = includes/commerce_shipping_condition_type.inc
+files[] = includes/commerce_shipping_condition.admin.inc
+files[] = includes/commerce_shipping_condition.inc
+
+configure = admin/commerce/config/shipping/conditions

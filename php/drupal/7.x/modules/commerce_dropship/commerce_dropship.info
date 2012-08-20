@@ -1,0 +1,7 @@
+name = Commerce Drop Ship
+description = Provides Commerce drop shipping features.
+package = Commerce (shipping)
+
+core = 7.x
+
+dependencies[] = commerce_shipping_extended

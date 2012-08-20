@@ -1,0 +1,15 @@
+<?php
+
+function commerce_dropship_install() {
+  variable_set('commerce_dropship_variables', array());
+}
+
+function commerce_dropship_uninstall() {
+  $variables = variable_get('commerce_dropship_variables', array());
+
+  foreach (array_keys($variables) as $variable) {
+    variable_del($variable);
+  }
+
+  variable_del('commerce_dropship_variables');
+}

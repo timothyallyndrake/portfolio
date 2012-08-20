@@ -1,0 +1,219 @@
+<?php
+
+define('COMMERCE_DROPSHIP_FILE_LOCATION', 'public://');
+
+/**
+ * Implements hook_menu().
+ */
+function commerce_dropship_menu() {
+  return array(
+    'admin/commerce/dropship/create/%' => array(
+      'title' => 'Create drop shipments',
+      'description' => 'Create drop shipments',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('commerce_dropship_create', 4),
+      'access arguments' => array('create drop shipment'),
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Implements hook_permission().
+ */
+function commerce_dropship_permission() {
+  return array(
+    'create drop shipment' => array(
+      'title' => t('Create drop shipments'),
+      'description' => t('Allows users to create drop shipments.'),
+      'restrict access' => TRUE,
+    ),
+    'delete drop shipment' => array(
+      'title' => t('Delete drop shipments'),
+      'description' => t('Allows users to delete drop shipments.'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function commerce_dropship_theme() {
+  return array(
+    'commerce_dropship' => array(
+      'template' => 'commerce_dropship',
+      'variables' => array('line_items' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function commerce_dropship_entity_property_info_alter(&$property_info) {
+  $property_info['commerce_delivery']['properties']['commerce_dropship_fid'] = array(
+    'label' => t('File ID'),
+    'description' => t('Commerce drop ship file ID'),
+    'type' => 'integer',
+    'getter callback' => 'commerce_dropship_property_get',
+    'setter callback' => 'commerce_dropship_property_set',
+  );
+}
+
+function commerce_dropship_property_get($data, array $options, $name, $type, $info) {
+  return commerce_dropship_variable_get($name, $data->delivery_id);
+}
+
+function commerce_dropship_property_set($data, $name, $value) {
+  return commerce_dropship_variable_set($name, $data->delivery_id, $value);
+}
+
+function commerce_dropship_variable_name($name, $id) {
+  return implode('_', array('commerce_dropship', $name, $id));
+}
+
+function commerce_dropship_variable_del($name, $id) {
+  $variable_name = commerce_dropship_variable_name($name, $id);
+  variable_del($variable_name);
+  $variables = variable_get('commerce_dropship_variables');
+  unset($variables[$variable_name]);
+  variable_set('commerce_dropship_variables', $variables);
+  return is_null(commerce_dropship_variable_get($name, $id));
+}
+
+function commerce_dropship_variable_get($name, $id) {
+  return variable_get(commerce_dropship_variable_name($name, $id));
+}
+
+function commerce_dropship_variable_set($name, $id, $value) {
+  $variable_name = commerce_dropship_variable_name($name, $id);
+  variable_set($variable_name, $value);
+  $variables = variable_get('commerce_dropship_variables');
+  $variables[$variable_name] = TRUE;
+  variable_set('commerce_dropship_variables', $variables);
+  return !is_null(commerce_dropship_variable_get($name, $id));
+}
+
+function commerce_dropship_create($form, &$form_state, $orders = '') {
+  $message = array('error' => array(), 'status' => array());
+
+  foreach (entity_metadata_wrapper('list<commerce_order>', explode(',', $orders)) as $order) {
+    $documents = array();
+
+    foreach ($order->commerce_line_items as $line_item) {
+      $shipping_service = $line_item->line_item_shipping_service;
+
+      if (!$shipping_service || ($shipping_service && !$shipping_service->is_local_inventory->value())) {
+        $delivery = $line_item->delivery_ref->value() ? commerce_delivery_load($line_item->delivery_ref->value()) : commerce_delivery_new();
+        $delivery = entity_metadata_wrapper('commerce_delivery', $delivery);
+
+        if (!($commerce_dropship_fid = $delivery->commerce_dropship_fid->value())) {
+          $shipping_service_data = array_values($shipping_service->value());
+          $shipping_service_name = $shipping_service_data[0]; 
+          $shipping_service_info = commerce_shipping_service_load($shipping_service_name);
+
+          if (!array_key_exists($shipping_service_info['name'], $documents)) {
+            $documents[$shipping_service_info['name']] = array(
+              'line_items' => array(),
+            );
+          }
+          $document = &$documents[$shipping_service_info['name']];
+
+          $product = $line_item->commerce_product;
+          $order_id = $order->order_id->value();
+          $line_item_id = $line_item->line_item_id->value();
+          $vendor_item_number = $product->field_vendor_product_number->value();
+          $item_number = $product->sku->value();
+          $vendor_description = '&nbsp;';
+          $description = $product->title->value();
+          $quantity_unit = $line_item->quantity->value();
+          $unit_cost = $product->field_cost->value();
+          $ext_cost = '&nbsp;';
+
+          if (!array_key_exists($item_number, $document['line_items'])) {
+            $document['line_items'][$item_number] = array(
+              'line_item_id' => $line_item_id,
+              'vendor_item_number' => $vendor_item_number,
+              'item_number' => $item_number,
+              'vendor_description' => $vendor_description,
+              'description' => $description,
+              'quantity_unit' => 0,
+              'unit_cost' => $unit_cost,
+              'ext_cost' => $ext_cost,
+            );
+          }
+
+          $document['line_items'][$item_number]['quantity_unit'] += $quantity_unit;
+        }
+      }
+    }
+
+    if (count($documents)) {
+      $success = commerce_dropship_create_documents($order_id, $documents);
+      $message_type = $success ? 'status' : 'error';
+      $message[$message_type][] = $order_id;
+    }
+  }
+
+  if (count($message['status'])) {
+    drupal_set_message(t('Successfully created drop shipments for the following orders:') . ' <em>' . t('@status', array('@status' => implode(', ', $message['status']))) . '</em>.', 'status');
+  }
+
+  if (count($message['error'])) {
+    drupal_set_message(t('Failed to create drop shipments for the following orders:') . ' <em>' . t('@error', array('@error' => implode(', ', $message['error']))) . '</em>.', 'error');
+  }
+
+  $form_state['redirect'] = 'admin/commerce/orders';
+}
+
+function commerce_dropship_create_documents($order_id, $documents) {
+  require_once('tcpdf/config/lang/eng.php');
+  require_once('tcpdf/tcpdf.php');
+
+  $success = TRUE;
+
+  foreach ($documents as $shipping_service_name => $document) {
+    $document_name = 'drop_shipment_' . $order_id . '_' . $shipping_service_name . '.pdf';
+    $document_temp_path = file_directory_temp() . '/' . $document_name;
+    $document_save_path = COMMERCE_DROPSHIP_FILE_LOCATION . '/' . $document_name;
+
+    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, TRUE, 'UTF-8', FALSE);
+
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->setLanguageArray($l);
+    $pdf->SetFont('helvetica', '', 9);
+
+    $pdf->AddPage();
+    $pdf->writeHTML(theme('commerce_dropship', array('line_items' => $document['line_items'])), TRUE, FALSE, TRUE, FALSE, '');
+    $pdf->lastPage();
+
+    $pdf->Output($document_temp_path, 'F');
+
+    unset($pdf);
+
+    if ($data = file_get_contents($document_temp_path)) {
+      if ($file = file_save_data($data, $document_save_path)) {
+        $delivery = commerce_delivery_new($order_id);
+        $delivery = commerce_delivery_save($delivery);
+
+        $delivery = entity_metadata_wrapper('commerce_delivery', $delivery);
+        $delivery->commerce_dropship_fid = $file->fid;
+        $delivery->save();
+
+        foreach ($document['line_items'] as $line_item) {
+          $line_item = entity_metadata_wrapper('commerce_line_item', $line_item['line_item_id']);
+          $line_item->delivery_ref = $delivery->delivery_id->value();
+          $line_item->save();
+        }
+
+        continue;
+      }
+    }
+
+    $success = FALSE;
+  }
+
+  return $success;
+}

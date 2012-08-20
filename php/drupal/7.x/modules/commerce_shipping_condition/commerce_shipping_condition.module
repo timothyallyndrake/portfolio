@@ -1,0 +1,209 @@
+<?php
+
+function commerce_shipping_condition_commerce_shipping_service_option_list() {
+  return variable_get('commerce_shipping_condition_flat_rate_service_options_list');
+}
+
+/**
+ * Implements hook_commerce_shipping_service_info_alter().
+ */
+function commerce_shipping_condition_commerce_shipping_service_info_alter(&$shipping_services) {
+  $options = array();
+
+  foreach ($shipping_services as $name => $shipping_service) {
+    if ($shipping_service['shipping_method'] == 'flat_rate') {
+      $options[$name] = $shipping_service['title'];
+    }
+  }
+
+  variable_set('commerce_shipping_condition_flat_rate_service_options_list', $options);
+
+  return $shipping_services;
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function commerce_shipping_condition_entity_info() {
+  $info = array();
+
+  $info['commerce_shipping_condition_type'] = array(
+    'label' => t('Shipping condition type'),
+    'plural label' => t('Shipping condition types'),
+    'controller class' => 'CommerceShippingConditionTypeController',
+    'entity class' => 'CommerceShippingConditionType',
+    'base table' => 'commerce_shipping_condition_type',
+    'entity keys' => array(
+      'id' => 'id',
+      'name' => 'type',
+      'label' => 'name',
+    ),
+    'bundle of' => 'commerce_shipping_condition',
+    'module' => 'commerce_shipping_condition',
+    'metadata controller class' => 'CommerceShippingConditionTypeMetadataController',
+    'access callback' => 'commerce_shipping_condition_access',
+    'fieldable' => FALSE,
+    'exportable' => FALSE,
+  );
+
+  $admin_ui = ((class_exists('EntityAPIController') && class_exists('CommerceShippingConditionTypeUIController')) ? TRUE : FALSE);
+
+  if ($admin_ui) {
+    $info['commerce_shipping_condition_type'] += array(
+      'admin ui' => array(
+        'path' => 'admin/commerce/config/shipping/conditions/types',
+        'file path' => drupal_get_path('module', 'commerce_shipping_condition') . '/includes',
+        'file' => 'commerce_shipping_condition_type.admin.inc',
+        'controller class' => 'CommerceShippingConditionTypeUIController',
+        'menu wildcard' => '%commerce_shipping_condition_type',
+      ),
+    );
+  }
+
+  $info['commerce_shipping_condition'] = array(
+    'label' => t('Shipping condition'),
+    'plural label' => t('Shipping conditions'),
+    'controller class' => 'CommerceShippingConditionController',
+    'entity class' => 'CommerceShippingCondition',
+    'base table' => 'commerce_shipping_condition',
+    'entity keys' => array(
+      'id' => 'id',
+      'bundle' => 'type',
+      'label' => 'name',
+    ),
+    'bundles' => array(),
+    'bundle keys' => array(
+      'bundle' => 'type',
+    ),
+    'module' => 'commerce_shipping_condition',
+    'metadata controller class' => 'CommerceShippingConditionMetadataController',
+    'access callback' => 'commerce_shipping_condition_access',
+    'fieldable' => FALSE,
+    'exportable' => FALSE,
+  );
+
+  if ($admin_ui) {
+    $info['commerce_shipping_condition'] += array(
+      'admin ui' => array(
+        'path' => 'admin/commerce/config/shipping/conditions',
+        'file path' => drupal_get_path('module', 'commerce_shipping_condition') . '/includes',
+        'file' => 'commerce_shipping_condition.admin.inc',
+        'controller class' => 'CommerceShippingConditionUIController',
+        'menu wildcard' => '%commerce_shipping_condition',
+      ),
+    );
+  }
+
+  if (db_table_exists('commerce_shipping_condition_type')) {
+    $types = db_select('commerce_shipping_condition_type', 'et')
+      ->fields('et')
+      ->execute()
+      ->fetchAllAssoc('type');
+
+    foreach ($types as $key => $type) {
+      $info['commerce_shipping_condition']['bundles'][$type->type] = array(
+        'label' => t($type->name),
+      );
+
+      if ($admin_ui) {
+        $info['commerce_shipping_condition']['bundles'][$type->type] += array(
+          'admin' => array(
+            'path' => 'admin/commerce/config/shipping/conditions/types/manage/%commerce_shipping_condition_type',
+            'real path' => 'admin/commerce/config/shipping/conditions/types/manage/' . $type->type,
+            'bundle argument' => 6,
+            'access callback' => 'commerce_shipping_condition_access',
+          ),
+        );
+      }
+    }
+  }
+
+  return $info;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function commerce_shipping_condition_permission() {
+  return array(
+    'administer shipping condition' =>  array(
+      'title' => t('Administer shipping conditions'),
+      'description' => t('Define and manage Commerce (shipping) conditions.'),
+    ),
+  );
+}
+
+function commerce_shipping_condition_access() {
+  return user_access('administer shipping condition');
+}
+
+function commerce_shipping_condition_type_delete(CommerceShippingConditionType $entity) {
+  $entity->delete();
+}
+
+function commerce_shipping_condition_type_exists($type) {
+  $entities = commerce_shipping_condition_type_load_multiple($type);
+  return ((count($entities)) ? TRUE : FALSE);
+}
+
+function commerce_shipping_condition_type_load($type) {
+  $entities = commerce_shipping_condition_type_load_multiple($type);
+  return reset($entities);
+}
+
+function commerce_shipping_condition_type_load_multiple($type = NULL) {
+  return entity_load_multiple_by_name('commerce_shipping_condition_type', isset($type) ? array($type) : FALSE);
+}
+
+function commerce_shipping_condition_type_options_list() {
+  $options = array();
+
+  foreach (commerce_shipping_condition_type_load_multiple() as $key => $type) {
+    $options[$type->type] = t($type->name);
+  }
+
+  return $options;
+}
+
+function commerce_shipping_condition_type_save(CommerceShippingConditionType $entity) {
+  $entity->save();
+}
+
+function commerce_shipping_condition_create($values = array()) {
+  return entity_get_controller('commerce_shipping_condition')->create($values);
+}
+
+function commerce_shipping_condition_delete(CommerceShippingCondition $entity) {
+  $entity->delete();
+}
+
+function commerce_shipping_condition_delete_multiple(array $ids) {
+  entity_get_controller('commerce_shipping_condition')->delete($ids);
+}
+
+function commerce_shipping_condition_load($id, $reset = FALSE) {
+  $entities = commerce_shipping_condition_load_multiple(array($id), array(), $reset);
+  return reset($entities);
+}
+
+function commerce_shipping_condition_load_multiple($ids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('commerce_shipping_condition', $ids, $conditions, $reset);
+}
+
+function commerce_shipping_condition_load_multiple_by_shipping_service($shipping_service) {
+  $statement = db_select('commerce_shipping_condition', 'e');
+  $statement->join('commerce_shipping_condition_type', 'et', 'et.type = e.type');
+  $statement->fields('e', array('id'));
+  $statement->condition('et.status', 1, '=');
+  $statement->condition('e.status', 1, '=');
+  $statement->condition('e.commerce_flat_rate_name', $shipping_service, '=');
+
+  $connection = $statement->execute();
+  $result = $connection->fetchAllAssoc('e.id');
+
+  return ((empty($result)) ? array() : commerce_shipping_condition_load_multiple(array_keys($result), array(), TRUE));
+}
+
+function commerce_shipping_condition_save(CommerceShippingCondition $entity) {
+  return $entity->save();
+}
