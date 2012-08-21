@@ -1,0 +1,289 @@
+<?php
+
+/**
+ * Implements hook_block_info().
+ */
+function user_file_block_info() {
+  $blocks = array();
+
+  $blocks['owned'] = array(
+   'info' => 'User File (Owned)',
+   'weight' => -50,
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  $blocks['shared'] = array(
+   'info' => 'User File (Shared)',
+   'weight' => -50,
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function user_file_block_view($delta = '') {
+  global $user;
+
+  $block = array();
+
+  switch ($delta) {
+    case 'owned':
+      if (($path_user = menu_get_object('user', 1))) {
+        drupal_add_css('#block-user-file-owned { display:inline-block; margin-right:40px; width:40%; }', 'inline');
+
+        $owned_uris = user_file_owned_uris($path_user);
+
+        $files = file_load_multiple(FALSE, array('uid' => $path_user->uid));
+
+        $rows = array();
+        foreach ($files as $file) {
+          if (in_array($file->uri, $owned_uris)) {
+            $cells = &$rows[];
+            $cells[] = $file->filename;
+//            $cells[] = format_size($file->filesize);
+//            $cells[] = format_date($file->timestamp, 'short');
+            $cells[] = l(t('view'), file_create_url($file->uri), array('attributes' => array('target' => '_blank')));
+            $cells[] = l(t('delete'), 'user/' . $path_user->uid . '/edit/files/' . $file->fid . '/delete');
+          }
+        }
+
+        $block['subject'] = t('Owned by me');
+        $block['content'] = array(
+          '#theme' => 'table',
+          '#header' => array(
+            array('data' => t('File')),
+//            array('data' => t('Size'), 'width' => '15%'),
+//            array('data' => t('Date'), 'width' => '25%'),
+            array('data' => t('Operations'), 'colspan' => 2, 'width' => '20%'),
+          ),
+          '#rows' => $rows,
+          '#sticky' => FALSE,
+          '#empty' => t('There are no files.'),
+        );
+      }
+      break;
+
+    case 'shared':
+      if (($path_user = menu_get_object('user', 1))) {
+        drupal_add_css('#block-user-file-shared { display:inline-block; width:40%; }', 'inline');
+
+        $owned_uris = user_file_owned_uris($path_user);
+
+        $files = file_scan_directory('private://user_file_' . $path_user->uid, '*.*');
+
+        $rows = array();
+        foreach ($files as $file) {
+          $file = file_load_multiple(array(), array('uri' => $file->uri));
+          $keys = array_keys($file);
+          $file = $file[$keys[0]];
+
+          if (!in_array($file->uri, $owned_uris)) {
+            $cells = &$rows[];
+            $cells[] = $file->filename;
+  //          $cells[] = format_size($file->filesize);
+  //          $cells[] = format_date($file->timestamp, 'short');
+            $cells[] = l(t('view'), file_create_url($file->uri), array('attributes' => array('target' => '_blank')));
+            $delete = '';
+            if (user_file_delete_access($file)) {              
+              $delete = l(t('delete'), 'user/' . $path_user->uid . '/edit/files/' . $file->fid . '/delete');
+            }
+            $cells[] = $delete;
+          }
+        }
+
+        $block['subject'] = t('Shared with me');
+        $block['content'] = array(
+          '#theme' => 'table',
+          '#header' => array(
+            array('data' => t('File')),
+  //          array('data' => t('Size'), 'width' => '15%'),
+  //          array('data' => t('Date'), 'width' => '25%'),
+            array('data' => t('Operations'), 'colspan' => 2, 'width' => '20%'),
+          ),
+          '#rows' => $rows,
+          '#sticky' => FALSE,
+          '#empty' => t('There are no files.'),
+        );
+      }
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function user_file_menu() {
+  $items = array();
+
+  $items['user/%user/edit/files'] = array(
+    'title' => 'Files',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('user_file_upload_form', 1),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['user/%user/edit/files/%file/delete'] = array(
+    'title' => 'Files',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('user_file_delete_confirm_form', 1, 4),
+    'access callback' => 'user_file_delete_access',
+    'access arguments' => array(4),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_user_file_upload_form().
+ */
+function user_file_upload_form($form, &$form_state, $user) {
+  $form = array();
+$sources = filefield_sources_list(FALSE);
+
+  $form['file'] = array(
+    '#type' => 'managed_file',
+    '#title' => t('File'),
+//    '#widget' => array('file_generic', array('filefield_sources' => array('filefield_sources' => $sources)), floatval(1), 'file'), 
+    '#upload_location' => 'private://user_file_' . $user->uid,
+  );
+
+  $form['save'] = array(
+    '#type' => 'submit',
+    '#value' => 'Upload',
+  );
+
+  return $form;
+}
+
+/**
+ * Implements hook_user_file_upload_form_submit().
+ */
+function user_file_upload_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+
+  if (!isset($values['file'])) {
+    return;
+  }
+
+  if ($file = file_load($values['file'])) {
+    $file->status = FILE_STATUS_PERMANENT;
+
+    file_save($file);
+    file_usage_add($file, 'user_file', 'user_file_fid', $file->fid);
+  }
+}
+
+/**
+ * Implements hook_user_file_delete_confirm_form().
+ */
+function user_file_delete_confirm_form($form, &$form_state, $user, $file) {
+  $form_state['user'] = $user;
+  $form_state['file'] = $file;
+
+  $question = t('Are you sure you want to delete the file') . ' <em>' . $file->filename . '</em>?';
+  $path = 'user/' . $user->uid . '/edit/files';
+  $description = t('This action cannot be undone.');
+  $yes = t('Confirm');
+  $no = t('Cancel');
+
+  return confirm_form($form, $question, $path, $description, $yes, $no);
+}
+
+/**
+ * Implements hook_user_file_delete_confirm_form_submit().
+ */
+function user_file_delete_confirm_form_submit($form, &$form_state) {
+  $user = $form_state['user'];
+  $file = $form_state['file'];
+
+  $success = file_delete($file, TRUE);
+
+  if ($success) {
+    drupal_set_message(t('File') . ' <em>' . $file->filename . '</em> ' . t('deleted successfully.'), 'status');
+  }
+  else {
+    drupal_set_message(t('Error deleting file') . ' <em>' . $file->filename . '</em> ', 'error');
+  }
+
+  $form_state['redirect'] = 'user/' . $user->uid . '/edit/files';
+}
+
+/**
+ * Implements hook_file_download().
+ */
+function user_file_file_download($uri) {
+  global $user;
+
+  if (in_array('administrator', $user->roles)) {
+    return array('Content-Type' => file_get_mimetype($uri));
+  }
+
+  $files = file_scan_directory('private://user_file_' . $user->uid, '*.*');
+
+  foreach ($files as $file) {
+    if ($uri == $file->uri) {
+      return array('Content-Type' => file_get_mimetype($uri));
+    }
+  }
+
+  return -1;
+}
+
+function user_file_delete_access($file) {
+  global $user;
+
+  return in_array('administrator', $user->roles) ? TRUE : in_array($file->uri, user_file_owned_uris($user));
+}
+
+function user_file_owned_uris($user) {
+  $uris = array();
+
+  $files = file_load_multiple(FALSE, array('uid' => $user->uid));
+
+  foreach ($files as $file) {
+    $scheme = file_uri_scheme($file->uri);
+    $target = file_uri_target($file->uri);
+    $target_parts = explode('/', $target);
+    $target_parts = explode('_', $target_parts[0]);
+
+    $user_file = FALSE;
+    $uid = FALSE;
+
+    if (count($target_parts) == 3) {
+      $user_file = $target_parts[0] . '_' . $target_parts[1];
+      $uid_parts = explode('/', $target_parts[2]);
+      $uid = $uid_parts[0];
+    }
+
+    if (($scheme == 'private') && ($user_file == 'user_file') && ($uid == $user->uid)) {
+      $uris[] = $file->uri;
+    }
+  }
+
+  return $uris;
+}
+
+function user_file_menu_alter(&$items) {
+  // Example - disable the page at node/add
+  $items['user/%user']['access callback'] = user_access('administer site configuration'); 
+  $items['user/%user/view']['access callback'] = FALSE;
+}
+
+function user_file_form_alter (&$form, &$form_state, $form_id) {
+
+  if ($form_id == 'block_admin_configure') {
+   //print '<pre>';
+   //print_r($form);
+   //print '</pre>';
+   //exit;
+    $form['settings']['body_field']['body']['#wysiwyg'] = FALSE;
+  }
+}

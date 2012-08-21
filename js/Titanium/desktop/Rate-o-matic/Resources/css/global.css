@@ -1,0 +1,170 @@
+body
+{
+	background-color: #3e4d64;
+	margin: 0px;
+	padding: 0px;
+}
+
+td
+{
+	font-family: sans-serif;
+	font-size: 12px;
+}
+
+input.text
+{
+	border-color: #888888;
+	border-style: solid;
+	border-width: 1px;
+	color: #888888;
+	padding: 3px;
+	-webkit-border-radius: 3px;
+	width: 100%;
+}
+
+input.default
+{
+	background: transparent;
+	border-color: #888888;
+	border-style: solid;
+	border-width: 1px;
+	color: #888888;
+	font-weight: bold;
+	-webkit-border-radius: 3px;
+}
+
+input.green
+{
+	background-color: #333333;
+	border-color: #999999;
+	border-style: solid;
+	border-width: 1px;
+	color: #00ff00;
+	font-weight: bold;
+	-webkit-border-radius: 3px;
+}
+
+input.red
+{
+	background-color: #333333;
+	border-color: #999999;
+	border-style: solid;
+	border-width: 1px;
+	color: #ff0000;
+	font-weight: bold;
+	-webkit-border-radius: 3px;
+}
+
+#constraint-table
+{
+	border-width: 0px;
+	width: 100%
+}
+
+#constraint-td
+{
+	padding-left: 5px;
+	padding-right: 5px;
+}
+
+#network-tab-table
+{
+	border-width: 0px;
+	width: 100%
+}
+
+#network-tab-td-right
+{
+	background-color: #333333;
+	color: #999999;
+	padding: 5px;
+	text-align: center;
+	width: 100px;
+	-webkit-border-bottom-left-radius: 5px;
+}
+
+#primary-tab-table-top
+{
+	border-width: 0px;
+	width: 100%
+}
+
+#primary-tab-td-top-left
+{
+	background-color: #cccccc;
+	color: #666666;
+	font-weight: bold;
+	padding: 5px;
+	text-align: center;
+	width: 100px;
+	-webkit-border-top-left-radius: 5px;
+	-webkit-border-top-right-radius: 5px;
+}
+
+#primary-panel-table
+{
+	border-width: 0px;
+	width: 100%;
+}
+
+#primary-panel-td
+{
+	background-color: #eeeeee;
+	color: #888888;
+	padding: 5px;
+	width: 100px;
+	-webkit-border-bottom-left-radius: 5px;
+	-webkit-border-top-right-radius: 5px;
+}
+
+#primary-panel-align-table
+{
+	border-width: 0px;
+	width: 100%
+}
+
+.primary-panel-align-tr
+{
+	height: 35px;
+}
+
+.primary-panel-align-td-left
+{
+	color: #888888;
+	font-size: 11px;
+	font-weight: bold;
+	padding-right: 5px;
+	text-align: right;
+	vertical-align: middle;
+	width: 100px;
+}
+
+.primary-panel-align-td-right
+{
+	color: #888888;
+	vertical-align: middle;
+}
+
+#primary-tab-table-bottom
+{
+	border-width: 0px;
+	width: 100%
+}
+
+#primary-tab-td-bottom-left
+{
+	color: #888888;
+	padding: 5px;
+	text-align: center;
+}
+
+#primary-tab-td-bottom-right
+{
+	background-color: #cccccc;
+	color: #888888;
+	padding: 5px;
+	text-align: center;
+	width: 150px;
+	-webkit-border-bottom-left-radius: 5px;
+	-webkit-border-bottom-right-radius: 5px;
+}

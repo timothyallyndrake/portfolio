@@ -1,0 +1,139 @@
+<html>
+	<head>
+		<link href="app://css/global.css" rel="stylesheet" type="text/css" />
+		<script src="app://js/ext-core.js" type="text/javascript"></script>
+		<script src="app://js/global.js" type="text/javascript"></script>
+		<script src="app://js/network/connectivityListener.js" type="text/javascript"></script>
+		<script src="app://js/network/request.js" type="text/javascript"></script>
+		<script src="app://js/file/input.js" type="text/javascript"></script>
+		<script src="app://js/file/output.js" type="text/javascript"></script>
+		<script src="app://js/xml/request.js" type="text/javascript"></script>
+		<script src="app://js/xml/response.js" type="text/javascript"></script>
+		<script src="app://js/process.js" type="text/javascript"></script>
+		<script src="app://js/index.js" type="text/javascript"></script>
+		<script type="text/javascript">
+			Ext.onReady
+			(
+				function()
+				{
+					app.network.connectivityListener.init();
+					app.process.init();
+					app.index.init();
+				}
+			);
+		</script>
+	</head>
+	<body>
+		<table cellpadding="0" cellspacing="0" id="constraint-table">
+			<tr>
+				<td>
+					<table cellpadding="0" cellspacing="0" id="network-tab-table">
+						<tr>
+							<td id="network-tab-td-left">&nbsp;</td>
+							<td id="network-tab-td-right"><label id="network-tab-label">Network:</label>&nbsp;<label id="network-tab-value">Offline</label></td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+			<tr>
+				<td id="constraint-td">
+					<table cellpadding="0" cellspacing="0" id="primary-tab-table-top">
+						<tr>
+							<td id="primary-tab-td-top-left"><label id="primary-tab-top-label">&nbsp;</label></td>
+							<td id="primary-tab-td-top-right">&nbsp;</td>
+						</tr>
+					</table>
+					<table cellpadding="0" cellspacing="0" id="primary-panel-table">
+						<tr>
+							<td id="primary-panel-td">
+								<table cellpadding="0" cellspacing="0" id="primary-panel-align-table">
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<label for="username-text">Username:</label>
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input class="text" id="username-text" type="text" value="" />
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<label for="password-text">Password:</label>
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input class="text" id="password-text" type="password" value="" />
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<label for="contractId-text">Contract ID:</label>
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input class="text" id="contractId-text" type="text" />
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<label for="mode-text">Mode:</label>
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input class="text" id="mode-text" type="text" />
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<label>Use SCAC:</label>
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input checked="checked" id="useScac-radio-no" name="useScac-radio" type="radio" value="0" />&nbsp;No&nbsp;&nbsp;&nbsp;<input id="useScac-radio-yes" name="useScac-radio" type="radio" value="1" />&nbsp;Yes
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<input class="default" id="inputFile-button" onclick="app.index.inputFileDialog()" type="button" value="Input File:" />
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input class="text" id="inputFile-text" readonly="readonly" type="text" />
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<label>Output File:</label>
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input class="text" id="outputFile-text" readonly="readonly" type="text" />
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											<label>Progress:</label>
+										</td>
+										<td class="primary-panel-align-td-right">
+											<input class="text" id="progress-text" readonly="readonly" type="text" />
+										</td>
+									</tr>
+									<tr class="primary-panel-align-tr">
+										<td class="primary-panel-align-td-left">
+											&nbsp;
+										</td>
+										<td class="primary-panel-align-td-right" style="text-align: right;">
+											<input class="green" id="start-button" onclick="app.process.start()" style="display: inline;" type="button" value="Start" />
+											<input class="green" id="resume-button" onclick="app.process.resume()" style="display: none;" type="button" value="Resume" />
+											<input class="red" id="stop-button" onclick="app.process.stop()" style="display: none;" type="button" value="Stop" />
+											<input class="red" id="reset-button" onclick="app.process.reset()" style="display: none;" type="button" value="Reset" />
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+					<table cellpadding="0" cellspacing="0" id="primary-tab-table-bottom">
+						<tr>
+							<td id="primary-tab-td-bottom-left"><label id="primary-tab-bottom-label-left"></label></td>
+							<td id="primary-tab-td-bottom-right"><label id="primary-tab-bottom-label-right"></label></td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>

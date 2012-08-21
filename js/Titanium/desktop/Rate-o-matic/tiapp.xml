@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<ti:app xmlns:ti='http://ti.appcelerator.org'>
+<!-- These values are edited/maintained by Titanium Developer -->
+<id>com.sgiws.rateomatic</id>
+<name>Rate-o-matic</name>
+<version>1.1.1</version>
+<publisher>Timothy Allyn Drake</publisher>
+<url>http://www.sgiws.com</url>
+<icon>icon.png</icon>
+<copyright>2011 Story Group, Inc.</copyright>
+<!-- Window Definition - these values can be edited -->
+<window>
+<id>initial</id>
+<title>Rate-o-matic</title>
+<url>app://index.html</url>
+<width>400</width>
+<max-width>400</max-width>
+<min-width>400</min-width>
+<height>401</height>
+<max-height>401</max-height>
+<min-height>401</min-height>
+<fullscreen>false</fullscreen>
+<resizable>false</resizable>
+<chrome scrollbars="false">true</chrome>
+<maximizable>false</maximizable>
+<minimizable>true</minimizable>
+<closeable>true</closeable>
+</window>
+<!-- Update Monitor -->
+<update-monitor>false</update-monitor>
+</ti:app>

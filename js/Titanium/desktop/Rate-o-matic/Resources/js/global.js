@@ -1,0 +1,11 @@
+Ext.namespace('app');
+Ext.namespace('app.file');
+Ext.namespace('app.file.input');
+Ext.namespace('app.file.output');
+Ext.namespace('app.index');
+Ext.namespace('app.network');
+Ext.namespace('app.network.connectivityListener');
+Ext.namespace('app.network.request');
+Ext.namespace('app.process');
+Ext.namespace('app.xml');
+Ext.namespace('app.xml.request');

@@ -1,0 +1,3 @@
+name = User File
+description = Provides user files.
+core = 7.x
